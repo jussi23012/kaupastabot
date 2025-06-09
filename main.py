@@ -7,13 +7,27 @@
 from telegram import Update
 from telegram import BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from functools import wraps
 import sqlite3
 import os
 import auth
+from allowedUsers import allowedUsers as WELCOME
 
 BOT_TOKEN = os.environ.get(auth.API_key)
 user_add_mode = set()
 pending_destruction = set()
+
+# ====================Access====================
+
+def restricted(func):
+    @wraps(func)
+    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        user_id = update.effective_user.id
+        if user_id not in WELCOME:
+            await update.message.reply_text("Äp äp! Sinulla ei ole lupaa käyttää tätä bottia.")
+            return
+        return await func(update, context, *args, **kwargs)
+    return wrapped
 
 # ====================SQLite====================
 
@@ -45,13 +59,22 @@ scoreboard_conn.commit()
 
 # ====================Commands====================
 
+# /id command
+async def id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await update.message.reply_text("ID:si on:")
+    await update.message.reply_text(f"{user.id}")
+
+
 # /start command
+@restricted
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user.first_name
     await update.message.reply_text(
         f"Hei {user}! Jos jokin on jääkaapista loppu, lisää se listalle kirjoittamalla /add <asia>.")
 
 # /add command
+@restricted
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_add_mode.add(user_id)
@@ -59,6 +82,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Kun olet valmis, kirjoita /done.")
     
 # /done command
+@restricted
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id =  update.effective_user.id
     if user_id in user_add_mode:
@@ -68,6 +92,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Et ole lisäämässä mitään.")
 
 # /list command
+@restricted
 async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kaupasta_curs.execute("SELECT name, added_by, timestamp FROM items ORDER BY timestamp ASC")
     rows = kaupasta_curs.fetchall()
@@ -83,6 +108,7 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message, parse_mode="Markdown")
 
 # /clear command
+@restricted
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     pending_destruction.add(user_id)
@@ -92,6 +118,7 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Peruuttaaksesi, kirjoita mitä tahansa muuta.")
 
 # /scoreboard
+@restricted
 async def scoreboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     scoreboard_curs.execute("SELECT user, points FROM scores ORDER BY points DESC LIMIT 10")
     rows = scoreboard_curs.fetchall()
@@ -110,6 +137,7 @@ async def scoreboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def setup(application):
     await application.bot.set_my_commands([
+        BotCommand("id","Hae käyttäjä-ID tunnistautumista varten."),
         BotCommand("start","Käynnistä botti"),
         BotCommand("add","Lisää asioita ostoslistalle"),
         BotCommand("done","Lopeta asioiden lisääminen"),
@@ -169,6 +197,7 @@ async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Regisgtering the commands
 app = ApplicationBuilder().token(auth.API_key).post_init(setup).build()
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("id", id))
 app.add_handler(CommandHandler("add", add))
 app.add_handler(CommandHandler("done", done))
 app.add_handler(CommandHandler("list", list))
