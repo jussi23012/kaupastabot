@@ -15,7 +15,7 @@ banned = [
     "paska",
     "idiootti",
     "jumalauta",
-    "muna",
+    # "muna",  # thanks to my QA nerd friend, this was caught early on (prevented the adding of kananmuna)
     "mulkku",
     "kusipää",
     "kyrpä",

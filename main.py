@@ -18,6 +18,7 @@ from banned import banned as soosoo
 BOT_TOKEN = os.environ.get(auth.API_key)
 user_add_mode = set()
 pending_destruction = set()
+pending_reset = set()
 
 # ====================Access====================
 
@@ -65,7 +66,10 @@ scoreboard_conn.commit()
 async def id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text("ID:si on:")
+    time.sleep(1)
     await update.message.reply_text(f"{user.id}")
+    time.sleep(1)
+    await update.message.reply_text(f"Ilmoita ID järjestelmänvalvojallesi.")
 
 
 # /start command
@@ -122,6 +126,18 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     time.sleep(1)
     await update.message.reply_text("Peruuttaaksesi, kirjoita mitä tahansa muuta.")
 
+# /emptyscoreboard
+@restricted
+async def clearscoreboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    pending_reset.add(user_id)
+
+    await update.message.reply_text("Oletko varma, että haluat tyhjentää pistetaulukon?")
+    time.sleep(1)
+    await update.message.reply_text("Kirjoita KYLLÄ, jos haluat tyhjentää pistetaulukon.")
+    time.sleep(1)
+    await update.message.reply_text("Peruuttaaksesi, kirjoita mitä tahansa muuta.")
+
 # /scoreboard
 @restricted
 async def scoreboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,6 +191,10 @@ async def buttonHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    if "session_scores" not in context.chat_data:
+        context.chat_data["session_scores"] = {}
+
+
     item_id = query.data
     kaupasta_curs.execute("SELECT added_by, name FROM items WHERE id = ?", (item_id,))
     row = kaupasta_curs.fetchone()
@@ -184,6 +204,12 @@ async def buttonHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     added_by, item_name = row
+
+    if "session_scores" not in context.chat_data:
+        context.chat_data["session_scores"] = {}
+
+    session_scores = context.chat_data["session_scores"]
+    session_scores[added_by] = session_scores.get(added_by, 0) + 1
 
     kaupasta_curs.execute("DELETE FROM items WHERE id = ?", (item_id,))
     kaupasta_conn.commit()
@@ -201,7 +227,18 @@ async def buttonHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     items = kaupasta_curs.fetchall()
 
     if not items:
-        await query.edit_message_text("Reipas! Lista on tyhjä!")
+        session_scores = context.chat_data.get("session_scores", {})
+        if session_scores:
+            score_lines = [f"{user} {points}p" for user, points in session_scores.items()]
+            score_text = "Pisteitä jaettu:\n" + ", ".join(score_lines)
+        else:
+            score_text = "Pisteitä ei jaettu."
+
+        context.chat_data["session_scores"] = {}
+
+        await query.edit_message_text(
+            f"Reipas! 🎉 Lista on tyhjä! \n\n{score_text} \n\nKokonaispisteet: /scoreboard"
+        )
         return
     
     keyboard = [
@@ -238,6 +275,19 @@ async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Lista ennallaan.")
         return
     
+    # resetting the scoreboard
+    if user_id in pending_reset:
+        pending_reset.remove(user_id)
+
+        if text == "KYLLÄ":
+            scoreboard_curs.execute("DELETE FROM scores")
+            scoreboard_conn.commit()
+            await update.message.reply_text("Pistetaulukko resetoitu.")
+
+        else:
+            await update.message.reply_text("Pistetaulukkoa ei resetoitu.")
+        return
+    
     if any(badWord in item for badWord in soosoo):
         await update.message.reply_text(f"Soo soo {user}. Listalle ei lisätä asiattomuuksia.")
         return
@@ -260,13 +310,14 @@ async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kaupasta_curs.execute("INSERT INTO items (name, added_by) VALUES (?, ?)", (item, user))
     kaupasta_conn.commit()
 
-    scoreboard_curs.execute("SELECT points FROM scores WHERE user = ?", (user,))
-    row = scoreboard_curs.fetchone()
-    if row:
-        scoreboard_curs.execute("UPDATE scores SET points = points + 1 WHERE user = ?", (user,))
-    else:
-        scoreboard_curs.execute("INSERT INTO scores (user, points) VALUES (?, 1)", (user,))
-    scoreboard_conn.commit()
+    # This should be deprecated now that users get the points based on if the product they added gets bought
+    # scoreboard_curs.execute("SELECT points FROM scores WHERE user = ?", (user,))
+    # row = scoreboard_curs.fetchone()
+    # if row:
+    #     scoreboard_curs.execute("UPDATE scores SET points = points + 1 WHERE user = ?", (user,))
+    # else:
+    #     scoreboard_curs.execute("INSERT INTO scores (user, points) VALUES (?, 1)", (user,))
+    # scoreboard_conn.commit()
 
     await update.message.reply_text(f"Lisätty listalle: {item}")
 
@@ -279,6 +330,7 @@ app.add_handler(CommandHandler("done", done))
 app.add_handler(CommandHandler("list", list))
 app.add_handler(CommandHandler("clear", clear))
 app.add_handler(CommandHandler("scoreboard", scoreboard))
+app.add_handler(CommandHandler("clearscoreboard",clearscoreboard))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler))
 app.add_handler(CommandHandler("shop", listButtons)) 
 app.add_handler(CallbackQueryHandler(buttonHandler))
