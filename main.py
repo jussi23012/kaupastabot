@@ -5,13 +5,15 @@
 # ====================Imports====================
 
 from telegram import Update
-from telegram import BotCommand
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from functools import wraps
+import time
 import sqlite3
 import os
 import auth
 from allowedUsers import allowedUsers as WELCOME
+from banned import banned as soosoo
 
 BOT_TOKEN = os.environ.get(auth.API_key)
 user_add_mode = set()
@@ -71,7 +73,7 @@ async def id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user.first_name
     await update.message.reply_text(
-        f"Hei {user}! Jos jokin on jääkaapista loppu, lisää se listalle kirjoittamalla /add <asia>.")
+        f"Hei {user}! Jos jokin on jääkaapista loppu, lisää se listalle käyttämällä komentoa /add.")
 
 # /add command
 @restricted
@@ -79,6 +81,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_add_mode.add(user_id)
     await update.message.reply_text("Kirjoita listalle lisättävät asiat yksi kerrallaan.")
+    time.sleep(0.5)
     await update.message.reply_text("Kun olet valmis, kirjoita /done.")
     
 # /done command
@@ -89,7 +92,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_add_mode.remove(user_id)
         await update.message.reply_text("Olet poistunut lisäystilasta.")
     else:
-        await update.message.reply_text("Et ole lisäämässä mitään.")
+        await update.message.reply_text("Et lisännyt listalle mitään.")
 
 # /list command
 @restricted
@@ -114,7 +117,9 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending_destruction.add(user_id)
 
     await update.message.reply_text("Oletko varma, että haluat tyhjentää listan?")
+    time.sleep(1)
     await update.message.reply_text("Kirjoita KYLLÄ, jos haluat tyhjentää listan.")
+    time.sleep(1)
     await update.message.reply_text("Peruuttaaksesi, kirjoita mitä tahansa muuta.")
 
 # /scoreboard
@@ -141,10 +146,77 @@ async def setup(application):
         BotCommand("start","Käynnistä botti"),
         BotCommand("add","Lisää asioita ostoslistalle"),
         BotCommand("done","Lopeta asioiden lisääminen"),
-        BotCommand("list","Näytä ostoslista"),
+        BotCommand("list","Näytä tekstimuotoinen ostoslista"),
+        BotCommand("shop","Näytä interaktiivinen ostoslista"),
         BotCommand("clear","Tyhjennä ostoslista"),
         BotCommand("scoreboard","Näytä pistetaulukko"),
     ])
+
+async def listButtons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kaupasta_curs.execute("SELECT id, name FROM items")
+    items = kaupasta_curs.fetchall()
+
+    if not items:
+        await update.message.reply_text("Ostoslista on tyhjä.")
+        return
+    
+    keyboard = [
+        [InlineKeyboardButton(text=name, callback_data=str(item_id))]
+        for item_id, name in items
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Kaupasta 🛒:\n\n" 
+    # + "\n".join([name for _, name in items]) # we don't want to show the list twice
+    ,
+    reply_markup=reply_markup)
+
+async def buttonHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    item_id = query.data
+    kaupasta_curs.execute("SELECT added_by, name FROM items WHERE id = ?", (item_id,))
+    row = kaupasta_curs.fetchone()
+
+    if not row:
+        await query.edit_message_text("Ei löydy")
+        return
+
+    added_by, item_name = row
+
+    kaupasta_curs.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    kaupasta_conn.commit()
+
+    scoreboard_curs.execute("SELECT points FROM scores where user = ?", (added_by,))
+    score_row = scoreboard_curs.fetchone()
+
+    if score_row:
+        scoreboard_curs.execute("UPDATE scores SET points = points + 1 WHERE user = ?", (added_by,))
+    else:
+        scoreboard_curs.execute("INSERT INTO scores (user, points) VALUES (?, 1)", (added_by,))
+    scoreboard_conn.commit()
+
+    kaupasta_curs.execute("SELECT id, name FROM items ORDER BY timestamp")
+    items = kaupasta_curs.fetchall()
+
+    if not items:
+        await query.edit_message_text("Reipas! Lista on tyhjä!")
+        return
+    
+    keyboard = [
+        [InlineKeyboardButton(text=name, callback_data=str(item_id))]
+        for item_id, name in items
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text="Päivitetty ostoslista 🛒:\n\n"
+        # + "\n".join([name for _, name in items]) # we don't want to show the list twice
+        ,
+        reply_markup=reply_markup
+    )
+
 
 # handler for handling the stuff that gets added and removed to and from the list
 async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -165,7 +237,11 @@ async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("Lista ennallaan.")
         return
-
+    
+    if any(badWord in item for badWord in soosoo):
+        await update.message.reply_text(f"Soo soo {user}. Listalle ei lisätä asiattomuuksia.")
+        return
+    
     # add mode
     if user_id not in user_add_mode:
         return
@@ -204,6 +280,8 @@ app.add_handler(CommandHandler("list", list))
 app.add_handler(CommandHandler("clear", clear))
 app.add_handler(CommandHandler("scoreboard", scoreboard))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler))
+app.add_handler(CommandHandler("shop", listButtons)) 
+app.add_handler(CallbackQueryHandler(buttonHandler))
 
 # Run the polling
 app.run_polling()
