@@ -1,0 +1,4 @@
+# .gitignore
+# We really don't need to track the database files
+
+*.db
