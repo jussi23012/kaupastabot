@@ -28,6 +28,8 @@ def restricted(func):
         user_id = update.effective_user.id
         if user_id not in WELCOME:
             await update.message.reply_text("Äp äp! Sinulla ei ole lupaa käyttää tätä bottia.")
+            time.sleep(1)
+            await update.message.reply_text("Ota yhteys järjestelmävalvojaan.")
             return
         return await func(update, context, *args, **kwargs)
     return wrapped
@@ -62,7 +64,7 @@ scoreboard_conn.commit()
 
 # ====================Commands====================
 
-# /id command
+# /id command (this is hidden from the menu)
 async def id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text("ID:si on:")
@@ -76,8 +78,10 @@ async def id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @restricted
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user.first_name
+    with open("logo.png", "rb") as photo:
+        await update.message.reply_photo(photo)
     await update.message.reply_text(
-        f"Hei {user}! Jos jokin on jääkaapista loppu, lisää se listalle käyttämällä komentoa /add.")
+        f"Hei {user}!\n\nLämpimästi tervetuloa käyttämään Kaupastabotia.\n\nJos jokin on jääkaapista loppu, lisää se listalle käyttämällä komentoa\n/add.")
 
 # /add command
 @restricted
@@ -158,8 +162,8 @@ async def scoreboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def setup(application):
     await application.bot.set_my_commands([
-        BotCommand("id","Hae käyttäjä-ID tunnistautumista varten."),
-        BotCommand("start","Käynnistä botti"),
+        # BotCommand("id","Hae käyttäjä-ID tunnistautumista varten."), # This doesn't really need to be visible. IYKYK
+        # BotCommand("start","Käynnistä botti"), # We really dont need this in the menu either
         BotCommand("add","Lisää asioita ostoslistalle"),
         BotCommand("done","Lopeta asioiden lisääminen"),
         BotCommand("list","Näytä tekstimuotoinen ostoslista"),
