@@ -1,4 +1,6 @@
 # .gitignore
-# We really don't need to track the database files
+# These are supposed to be secret
 
-*.db
+auth/
+databases/
+__pycache__/

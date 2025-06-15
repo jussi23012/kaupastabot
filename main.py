@@ -11,9 +11,9 @@ from functools import wraps
 import time
 import sqlite3
 import os
-import auth
-from allowedUsers import allowedUsers as WELCOME
-from banned import banned as soosoo
+from tools import auth as auth
+from tools import allowedUsers as WELCOME
+from tools import banned as soosoo
 
 BOT_TOKEN = os.environ.get(auth.API_key)
 user_add_mode = set()
@@ -37,7 +37,7 @@ def restricted(func):
 # ====================SQLite====================
 
 # list database
-kaupasta_conn = sqlite3.connect("kaupasta.db", check_same_thread=False)
+kaupasta_conn = sqlite3.connect("databases\\kaupasta.db", check_same_thread=False)
 kaupasta_curs = kaupasta_conn.cursor()
 kaupasta_curs.execute("""
         CREATE TABLE IF NOT EXISTS items (
@@ -50,7 +50,7 @@ kaupasta_curs.execute("""
 kaupasta_conn.commit()
 
 # scoreboard database
-scoreboard_conn = sqlite3.connect("scoreboard.db", check_same_thread=False)
+scoreboard_conn = sqlite3.connect("databases\\scoreboard.db", check_same_thread=False)
 scoreboard_curs = scoreboard_conn.cursor()
 scoreboard_curs.execute("""
         CREATE TABLE IF NOT EXISTS scores (
