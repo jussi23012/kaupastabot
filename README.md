@@ -19,9 +19,28 @@ A Telegram bot born partly from frustration. With the bot, users can add items t
 |/shop|Displays the current shopping list as an interactive list|
 |/clear|Clears the current shopping list|
 |/scoreboard|Displays the current scoreboard|
-|/id|Fetches the user's Telegram user ID so they can be added to the allowed users list (This command is not visible on the menu)|
-|/emptyscoreboard|Resets the scoreboard (This command is not visible on the menu)|
+
+
+Additional commands, that are not visible on the menu:
+|Command|Description|
+|-----|-----|
+|/id|Fetches the user's Telegram user ID so they can be added to the allowed users list|
+|/emptyscoreboard|Resets the scoreboard|
+|/start|Starts the bot and provides short instructions|
+
+## How to use it
+
+1) Download the code from this GitHub repository
+2) Create yourself a Telegram bot using the BotFather and get your API key from there
+3) Get your Telegram user ID (from @userinfobot for example)
+4) Run setup.py and enter your API key and user ID when prompted
+    - The setup creates a folder called "auth", which contains:
+        - kaupastabot_api.txt - the API key you entered
+        - allowedUsers.txt - a list of Telegram user IDs allowed to access your bot
+5) Run main.py and start a chat with your bot in Telegram
+
 
 ## To do
 
 - Language selection
+- Database backup system
