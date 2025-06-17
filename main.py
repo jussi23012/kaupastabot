@@ -1,5 +1,5 @@
 # main.py
-# A wonderful Telegram bot for those, whose kids have a hard time remembering to inform the adults when the fridge runs out of stuff
+# A wonderful self-hosted Telegram bot for those, whose kids have a hard time remembering to inform the adults when the fridge runs out of stuff
 # https://trello.com/b/aFgKUuiH/kaupastabot
 
 # ====================Imports====================
@@ -12,8 +12,8 @@ import time
 import sqlite3
 import os
 from tools import auth as auth
-from tools import allowedUsers as WELCOME
-from tools import banned as soosoo
+from tools.allowedUsers import allowedUsers as WELCOME
+from tools.banned import banned as soosoo
 
 BOT_TOKEN = os.environ.get(auth.API_key)
 user_add_mode = set()
@@ -36,8 +36,9 @@ def restricted(func):
 
 # ====================SQLite====================
 
-# list database
-kaupasta_conn = sqlite3.connect("databases\\kaupasta.db", check_same_thread=False)
+# Create the list database
+kaupastabotdbpath = os.path.join("databases","kaupastabot.db")
+kaupasta_conn = sqlite3.connect(kaupastabotdbpath, check_same_thread=False)
 kaupasta_curs = kaupasta_conn.cursor()
 kaupasta_curs.execute("""
         CREATE TABLE IF NOT EXISTS items (
@@ -49,8 +50,9 @@ kaupasta_curs.execute("""
 """)
 kaupasta_conn.commit()
 
-# scoreboard database
-scoreboard_conn = sqlite3.connect("databases\\scoreboard.db", check_same_thread=False)
+# Create the scoreboard database
+scoreboarddbpath = os.path.join("databases","scoreboard.db")
+scoreboard_conn = sqlite3.connect(scoreboarddbpath, check_same_thread=False)
 scoreboard_curs = scoreboard_conn.cursor()
 scoreboard_curs.execute("""
         CREATE TABLE IF NOT EXISTS scores (

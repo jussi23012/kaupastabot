@@ -2,11 +2,11 @@
 
 # Kaupastabot
 
-A Telegram bot born partly from frustration. With the bot, users can add items to the shared shopping list and gain points if the items they added get bought. 
+A self-hosted Telegram bot born partly from frustration (there was no cheese left in the fridge!). With the bot, users can add items to the shared shopping list and gain points if the items they added get bought. Perfect (well, not perfect, but it sounds good marketing wise) for families that do not want to use Google Keep or similar services.
 
 ## Features
 
-- Add items to a shared shopping list
+- Add items to a self-hosted, shared shopping list
 - Get points if the item you added gets marked bought
 
 ## Commands
