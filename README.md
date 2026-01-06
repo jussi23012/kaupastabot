@@ -44,3 +44,4 @@ Additional commands, that are not visible on the menu:
 
 - Language selection
 - Database backup system
+- Functionaly to be easily set up in Docker

@@ -14,6 +14,7 @@ import os
 from tools import auth as auth
 from tools.allowedUsers import allowedUsers as WELCOME
 from tools.banned import banned as soosoo
+from tools.sanitation import sanitize
 
 BOT_TOKEN = os.environ.get(auth.API_key)
 user_add_mode = set()
@@ -266,6 +267,13 @@ async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user = update.effective_user.first_name
     text = update.message.text.strip()
+
+    # new sanitation logic (january 2026)
+    item = sanitize(text)
+    if not item:
+        await update.message.reply_text("Virhe! Tarkista syöte.")
+        return
+
     item = update.message.text.strip().lower()
 
     # clearning the list
